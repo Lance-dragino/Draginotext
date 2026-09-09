@@ -11,6 +11,8 @@ npm-debug.log*
 *.log
 *.tmp
 *.bak
+*.docx
+
 
 # OS垃圾文件
 .DS_Store

@@ -55,7 +55,7 @@ function Decode(fPort, bytes, variables) {
         decode.TempC_DS=parseFloat(((bytes[4]<<24>>16 | bytes[5])/100).toFixed(2));
 
         decode.Ext=bytes[6];
-        decode.Systimestamp=getMyDate((bytes[7]<<24 | bytes[8]<<16 | bytes[9]<<8 | bytes[10]) .toString(10));
+        decode.Systimestamp=(bytes[7]<<24 | bytes[8]<<16 | bytes[9]<<8 | bytes[10]);
         decode.Node_type="LHT52";
         return decode;
       }

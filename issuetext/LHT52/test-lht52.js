@@ -1,6 +1,7 @@
-// ================= LHT52 Decoder (fPort 2/3/4/5) =================
 function decodeUplink(input) {
-  return { data: Decode(input.fPort, input.bytes, input.variables) };
+  return { 
+    data: Decode(input.fPort, input.bytes, input.variables)
+  };   
 }
 
 function str_pad(n) {
@@ -32,112 +33,102 @@ function getMyDate(str){
   return c_Time;
 }
 
+function datalog(i,bytes){
+  var aa= parseFloat(((bytes[i]<<8 | bytes[1+i])/100).toFixed(2));
+  var bb= parseFloat(((bytes[2+i]<<8 | bytes[3+i])/100).toFixed(2));
+  var cc= parseFloat(((bytes[4+i]<<8 | bytes[5+i])/10).toFixed(1)); 
+  var dd= bytes[6+i];
+  var ee= getMyDate((bytes[7+i]<<24 | bytes[8+i]<<16 | bytes[9+i]<<8 | bytes[10+i]).toString(10));
+  var string='['+aa+','+bb+','+cc+','+dd+','+ee+']'+',';  
+  
+  return string;
+}
+
 function Decode(fPort, bytes, variables) {
-
-var decode = {};
-
-// ---------- fPort=2: realtime (11 bytes) ----------
-if(fPort==2)
-{
-  if(bytes.length==11)
+  var decode = {};
+  if(fPort==2)
   {
-    decode.TempC_SHT=parseFloat(((bytes[0]<<24>>16 | bytes[1])/100).toFixed(2));
-    decode.Hum_SHT=parseFloat(((bytes[2]<<24>>16 | bytes[3])/10).toFixed(1));
-    decode.TempC_DS=parseFloat(((bytes[4]<<24>>16 | bytes[5])/100).toFixed(2));
-    decode.Ext=bytes[6];                      // raw byte, no assumption
-    decode.Systimestamp=getMyDate((bytes[7]<<24 | bytes[8]<<16 | bytes[9]<<8 | bytes[10].toString(10) ));
-    decode.Node_type="LHT52";
-    return decode;
-  }
-  else
-  {
-    decode.Status="RPL data or sensor reset";
-    decode.Node_type="LHT52";
-    return decode;
-  }
-}
+    if(bytes.length==11)
+      {
+        decode.TempC_SHT=parseFloat(((bytes[0]<<24>>16 | bytes[1])/100).toFixed(2));
+        decode.Hum_SHT=parseFloat(((bytes[2]<<24>>16 | bytes[3])/10).toFixed(1));
+        decode.TempC_DS=parseFloat(((bytes[4]<<24>>16 | bytes[5])/100).toFixed(2));
 
-// ---------- fPort=3: history records, 11 bytes each, object style ----------
-if(fPort==3)
-{
-  var recs=[];
-  for(var i=0;i+10<bytes.length;i=i+11)
-  {
-    var dsRaw=(bytes[i]<<8)|bytes[1+i];       // unsigned 16-bit for 0x7FFF check
-    var rec={};
-    if(dsRaw==0x7FFF)                         // no probe reading
-      rec.TempC_DS=null;                      // change to raw value if you prefer 327.67
+        decode.Ext=bytes[6];
+        decode.Systimestamp=(bytes[7]<<24 | bytes[8]<<16 | bytes[9]<<8 | bytes[10]);
+        decode.Node_type="LHT52";
+        return decode;
+      }
     else
-      rec.TempC_DS=parseFloat((((bytes[i]<<24>>16)|bytes[1+i])/100).toFixed(2));
-      rec.TempC_SHT=parseFloat(((bytes[2+i]<<8|bytes[3+i])/100).toFixed(2));
-      rec.Hum_SHT=parseFloat(((bytes[4+i]<<8|bytes[5+i])/10).toFixed(1));
-      rec.Ext=bytes[6+i];                       // dd: raw byte as-is
-      rec.Systimestamp=getMyDate((bytes[7+i]<<24|bytes[8+i]<<16|bytes[9+i]<<8|bytes[10+i].toString(10)));
-      // rec.Node_type="LHT52";
-      recs.push(rec);
+      {
+        decode.Status="RPL data or sensor reset";
+        decode.Node_type="LHT52";
+        return decode;
+      }
   }
-  return { Node_type:"LHT52", DATALOG: recs };
+
+  if(fPort==3)
+  {
+      var data_sum = '';
+      for(var i=0;i<bytes.length;i=i+11)
+      {
+        var data= datalog(i,bytes);
+        if(i=='0')
+          data_sum=data;
+        else
+          data_sum+=data;
+      }
+      return{
+      Node_type:"LHT52",
+      DATALOG:data_sum,
+      };    
+    } 
+  
+  if(fPort==4)
+    {
+      decode.DS18B20_ID=str_pad(bytes[0])+str_pad(bytes[1])+str_pad(bytes[2])+str_pad(bytes[3])+str_pad(bytes[4])+str_pad(bytes[5])+str_pad(bytes[6])+str_pad(bytes[7]);
+      decode.Node_type="LHT52";
+      return decode;
+    }
+
+  if(fPort==5)
+    {
+      decode.Sensor_Model=bytes[0];
+      decode.Firmware_Version=str_pad((bytes[1]<<8)|bytes[2]);
+      decode.Freq_Band=bytes[3];
+      decode.Sub_Band=bytes[4];
+      decode.Bat_mV=bytes[5]<<8|bytes[6];
+      decode.Node_type="LHT52";
+      return decode;
+    }
 }
 
-// ---------- fPort=4: DS18B20 ID (8 bytes) ----------
-if(fPort==4)
-{
-  decode.DS18B20_ID=str_pad(bytes[0])+str_pad(bytes[1])+str_pad(bytes[2])+str_pad(bytes[3])+str_pad(bytes[4])+str_pad(bytes[5])+str_pad(bytes[6])+str_pad(bytes[7]);
-  decode.Node_type="LHT52";
-  return decode;
-}
-
-// ---------- fPort=5: device status (7 bytes) ----------
-if(fPort==5)
-{
-  decode.Sensor_Model=bytes[0];
-  decode.Firmware_Version=str_pad((bytes[1]<<8)|bytes[2]);
-  decode.Freq_Band=bytes[3];
-  decode.Sub_Band=bytes[4];
-  decode.Bat_mV=bytes[5]<<8|bytes[6];
-  decode.Node_type="LHT52";
-  return decode;
-}
-
-return decode;
-}
 
 
 
 
 
-// =====================================================================
-// Below: simulate an uplink frame from the gateway and feed it to your decoder
-// =====================================================================
 
-function runTest(name, fPort, bytes) {
-  console.log('========== ' + name + ' ==========');
-  // simulate one uplink message
-  var input = { fPort: fPort, bytes: bytes, variables: {} };
-  var result = decodeUplink(input);
-  console.log('input bytes : [' + bytes.join(', ') + ']');
-  console.log('decode out  :', JSON.stringify(result, null, 2));
-  console.log('base64      : ' + Buffer.from(bytes).toString('base64') + '   <- use this in TTN console test');
+
+
+
+
+
+// ================= 测试数据(只打印,不做断言) =================
+// 粘贴到 test-lht52.js 解码器代码下方,运行: node test-lht52.js
+function hx(s){ s=s.replace(/\s/g,''); var b=[]; for(var i=0;i<s.length;i+=2) b.push(parseInt(s.substr(i,2),16)); return b; }
+function t(name, fPort, hex){
+  console.log('--- '+name+'   (fPort='+fPort+', '+hx(hex).length+' 字节) ---');
+  console.log('输入: '+hex.toUpperCase());
+  console.log('输出: '+JSON.stringify(decodeUplink({fPort:fPort, bytes:hx(hex), variables:{}}).data));
   console.log('');
 }
 
-// 1) fPort=2: realtime data (11 bytes)
-//    Temp 25.55 C | Hum 60.5% | DS18B20 -5.00 C | Ext sensor 0 | timestamp 1600000000
-runTest('1) fPort=2 realtime data (11 bytes)', 2,
-  [0x09, 0xFB, 0x02, 0x5D, 0xFE, 0x0C, 0x00, 0x5F, 0x5E, 0x10, 0x00]);
-
-// 2) fPort=3: history records, 11 bytes per record (2 records = 22 bytes)
-runTest('2) fPort=3 history data (2 records, 22 bytes)', 3,
-  [0x09, 0xFB, 0x09, 0x60, 0x00, 0xCD, 0x01, 0x5F, 0x5E, 0x10, 0x00,
-   0x07, 0xD1, 0x15, 0xAE, 0x00, 0x96, 0x00, 0x5F, 0x5E, 0x1E, 0x10]);
-
-// // 3) fPort=4: DS18B20 sensor ID (8 bytes ROM code)
-// runTest('3) fPort=4 DS18B20 ID (8 bytes)', 4,
-//   [0x28, 0xFF, 0xAA, 0x01, 0x4B, 0x12, 0x34, 0x56]);
-
-// // 4) fPort=5: device version info (7 bytes) -> battery 0x0E74 = 3700 mV
-// runTest('4) fPort=5 version info (7 bytes)', 5,
-//   [0x01, 0x01, 0x02, 0x04, 0x00, 0x0E, 0x74]);
-
-// // 5) fPort=2 with wrong length -> should return "RPL data or sensor reset"
-// runTest('5) fPort=2 wrong length (reset hint)', 2, [0x01, 0x02, 0x03]);
+t('C1  f2 实时(真实帧)',   2, '0BF402457FFF016AA0BD0D');
+t('C2  f2 经典帧(负温度)', 2, '09FB025DFE0C005F5E1000');
+t('C3  f2 长度异常',       2, '010203');
+t('C4  f3 两条记录',       3, '0B280B6401F7416AA0C0210B220B5F01F6416AA0C05D');
+t('C5  f3 无探头记录',     3, '7FFF0B8A020E416AA0B810');
+t('C6  f4 DS18B20 ID',     4, '288663B20000009F');
+t('C7  f5 设备状态',       5, '0901200100099C');
+t('C8  未知 fPort',        6, '0102');

@@ -45,9 +45,7 @@ function Decoder(bytes, port) {
     decode.TEMP1H_flag= (bytes[2] &0x10)? "True":"False";
     decode.TEMP1L_flag= (bytes[2] &0x20)? "True":"False";
     decode.TEMP2H_flag= (bytes[2] &0x04)? "True":"False";
-    decode.TEMP2L_flag= (bytes[2] &0x08)? "True":"False"; 
-    
-    // 超出范围-2000~2000判断为0
+    decode.TEMP2L_flag= (bytes[2] &0x08)? "True":"False";       
     var Temp_Channel1=parseFloat(((bytes[3]<<24>>16 | bytes[4])/10).toFixed(1)); 
     if (Temp_Channel1>2000 | Temp_Channel1<-2000)
     {
@@ -98,7 +96,7 @@ function Decoder(bytes, port) {
     if(bytes[0]==0x3D)
       sensor= "LTC2-LB";
       
-	var firm_ver= (bytes[1]&0x0f)+'.'+(bytes[2]>>4&0x0f)+'.'+(bytes[2]&0x0f);
+	  var firm_ver= (bytes[1]&0x0f)+'.'+(bytes[2]>>4&0x0f)+'.'+(bytes[2]&0x0f);
 	  
     if(bytes[3]==0x01)
         freq_band="EU868";
@@ -147,3 +145,75 @@ function Decoder(bytes, port) {
   	}
   }
 }
+
+
+
+/* ---------------------------- 二、小工具 --------------------------------- */
+// 十六进制字符串 -> 字节数组："0D AC" 或 "0DAC" 都行
+function hex(s) {
+  s = String(s).replace(/[^0-9a-fA-F]/g, '');
+  var a = [];
+  for (var i = 0; i < s.length; i += 2) a.push(parseInt(s.substr(i, 2), 16));
+  return a;
+}
+
+// 字节数组 -> "0D AC 3F ..."
+function hexStr(bytes) {
+  var out = [];
+  for (var i = 0; i < bytes.length; i++) {
+    var t = bytes[i].toString(16).toUpperCase();
+    out.push(t.length < 2 ? '0' + t : t);
+  }
+  return out.join(' ');
+}
+
+/* ------------------- 三、想看哪些报文：改这里就行 ------------------------- */
+var CASES = [
+  // FPort=2 常规上行：11 字节 = 电池(2) | 标志位(1) | CH1(2) | CH2(2) | 时间戳(4)
+  // { port: 2, hex: '0DAC 3F 00FD 00C8 6553F100', desc: 'FPort=2 标志位全 1，CH1=25.3℃ CH2=20℃' },
+  // { port: 2, hex: '0DAC 00 FF97 8300 6553F100', desc: 'FPort=2 负温度 CH1=-10.5℃，CH2 超量程归 0' },
+  // { port: 2, hex: '0DAC3F00FD00C86553F1',       desc: 'FPort=2 只有 10 字节（长度不对）' },
+
+  // FPort=3 每条记录 11 字节 = 保留(2) | CH2(2) | CH1(2) | flag(1) | 时间戳(4)
+  // { port: 3, hex: '0000 00FD 00C8 03 6553F100', desc: 'FPort=3 单条记录，flag=0x03' },
+  // { port: 3, hex: '0000 00FD 00C8 03 6553F100' + '0000 FF97 8300 80 6553F100',
+  //             desc: 'FPort=3 两条记录，第一条 flag=0x03，第二条 flag=0x80(bit7=1)' },
+  // { port: 3, hex: '0000 00FD 00C8 03 6553F100' + 'AA', desc: 'FPort=3 共 12 字节（不是 11 的整数倍）' },
+
+  { port: 3, hex: '000000F700FC4266DBFFD0 000000F700FC4266DC000C 000000F700FB4266DC0048 000000F700FB4266DC0084 000000F800FC4266DC00C0', desc: 'ceshi' },
+
+
+  // // FPort=5 设备状态：7 字节 = 型号(1) | 固件(2) | 频段(1) | 子频段(1) | 电池(2)
+  // { port: 5, hex: '3D 01 23 07 FF 0DAC', desc: 'FPort=5 型号 0x3D，固件 1.2.3，AS923，子频段 NULL' },
+  // { port: 5, hex: '16 01 23 08 02 0DAC', desc: 'FPort=5 型号 0x16（不在名单内），频段 AS923_1，子频段 2' },
+
+  // // 不支持的端口
+  // { port: 1, hex: '0DAC 3F 00FD 00C8 6553F100', desc: 'FPort=1 解码器不支持' },
+];
+
+/* ------------------------------ 四、开始打印 ------------------------------ */
+for (var c = 0; c < CASES.length; c++) {
+  var bytes = hex(CASES[c].hex);
+  var out = Decoder(bytes, CASES[c].port);
+
+  console.log('\n============================================================');
+  console.log('[' + (c + 1) + '] ' + CASES[c].desc);
+  console.log('============================================================');
+  console.log('FPort    : ' + CASES[c].port);
+  console.log('字节     : ' + hexStr(bytes) + '   (' + bytes.length + ' 字节)');
+  console.log('数值     : [' + bytes.join(', ') + ']');
+  console.log('原始输出 : ' + JSON.stringify(out, null, 2));
+
+  // FPort=3 的 DATALOG 是一整条拼接字符串，这里按 [] 拆开原样显示（不改数据）
+  if (out && typeof out.DATALOG === 'string') {
+    var recs = out.DATALOG.match(/\[[^\]]+\]/g) || [];
+    console.log('DATALOG 原串 : ' + out.DATALOG);
+    for (var k = 0; k < recs.length; k++) {
+      console.log('  第' + (k + 1) + '条     : ' + recs[k]);
+    }
+  }
+}
+
+console.log('\n提示：把上面 CASES 里的 hex 换成你自己的报文即可；hex 允许空格与换行。');
+
+

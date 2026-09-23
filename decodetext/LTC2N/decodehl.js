@@ -2,16 +2,20 @@
 function datalog(i,bytes){
     var aa = parseFloat(((bytes[4+i]<<24>>16 | bytes[5+i])/10).toFixed(1));
     var bb = parseFloat(((bytes[2+i]<<24>>16 | bytes[3+i])/10).toFixed(1));
-    var cc = 
-
+    var cc = (bytes[6+i] & 0x02)?"HIGH":"LOW";//LTC2N无中断
+    var dd = (bytes[6+i] & 0x01)?"TURE":"FALSE";//LTC2N无中断
+    var ee = getMyDate(bytes[7+i]<<24 | bytes[8+i]<<16 | bytes[9+i]<<8 | bytes[10+i]);
+    var string = ['+aa+','+bb+','+cc+','+dd+','+ee+']+',';
+    
+    return string;
 }
 
 // 补零函数
 function getzf(c_num){ 
-  if(parseInt(c_num) < 10)
-    c_num = '0' + c_num; 
-
-  return c_num; 
+    if(parseInt(c_num) < 10)
+        c_num = '0' + c_num;
+    
+    return c_num; 
 }
 
 // 时间戳转换
@@ -38,12 +42,12 @@ function Decoder(bytes, port) {
     if(port==0x02){
         var decode = {};
         decode.BatV = (bytes[0]<<8 | bytes[1])/1000;
-        decode.InterruptFlag = (bytes[2] & 0x01)? "TURE":"FALSE";
-        decode.InterruptLevel = (bytes[2] & 0x02)?"HIGHT":"LOW";
-        decode.TEMP1Hflag = (bytes[2] & 0x10)? "TURE":"FALSE";
-        decode.TEMP1Lflag = (bytes[2] & 0x20)? "TURE":"FALSE";
-        decode.TEMP2Hflag = (bytes[2] & 0x04)? "TURE":"FALSE";
-        decode.TEMP2Lflag = (bytes[2] & 0x08)? "TURE":"FALSE";
+        decode.Interrupt_Flag = (bytes[2] & 0x01)? "TURE":"FALSE";
+        decode.Interrupt_Level = (bytes[2] & 0x02)?"HIGHT":"LOW";
+        decode.TEMP1H_flag = (bytes[2] & 0x10)? "TURE":"FALSE";
+        decode.TEMP1L_flag = (bytes[2] & 0x20)? "TURE":"FALSE";
+        decode.TEMP2H_flag = (bytes[2] & 0x04)? "TURE":"FALSE";
+        decode.TEMP2L_flag = (bytes[2] & 0x08)? "TURE":"FALSE";
         decode.LCT1_button_flag = (bytes[2] & 0x40)? "TURE":"FALSE";//固件v1.3.0新增
 
         // 超出范围-2000~2000判断为0（规格书无相关说明）
@@ -57,7 +61,8 @@ function Decoder(bytes, port) {
         var Channel2Temperature = parseFloat(((bytes[5]<<24>>16 | bytes[6])/10).toFixed(1));
         if(Channel2Temperature<-2000|Channel2Temperature>2000){
             decode.Channel2Temperature = 0;//"NULL"？
-        }else{
+        }
+        else{
             decode.Channel2Temperature =  Channel2Temperature;
         }
 
@@ -69,6 +74,18 @@ function Decoder(bytes, port) {
     }
     else if(port==3)
     {
+        for(var i=0;i<bytes.length;i=i+11){
+            var data_sum = '';
+            var logdata = datalog(i,bytes);
+            if(i==0){
+                data_sum = logdata;
+            }
+            else{
+                data_sum+= logdata;
+            }
+
+        }
+
 
 
 

@@ -10,6 +10,7 @@ function datalog(i,bytes){
     return string;
 }
 
+
 // 补零函数
 function getzf(c_num){ 
     if(parseInt(c_num) < 10)

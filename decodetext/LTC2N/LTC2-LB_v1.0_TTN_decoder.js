@@ -16,6 +16,7 @@ function getzf(c_num){
   return c_num; 
 }
 
+
 function getMyDate(str){ 
   var c_Date;
   if(str > 9999999999)

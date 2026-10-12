@@ -86,7 +86,7 @@ function Decode(fPort, bytes, variables)  {
     return c_Time;
   }
 
-  switch (input.fPort) {
+  switch (fPort) {
   case 2:
     if((bytes[0]>>6&0x03)===0x00)// Wiki not mentioned
       data.Calibration_mode="Factory calibration";
@@ -105,9 +105,9 @@ function Decode(fPort, bytes, variables)  {
       data.Data_time= getMyDate((bytes[7]<<24 | bytes[8]<<16 | bytes[9]<<8 | bytes[10]).toString(10));      
       data.Node_type="LTC1N-LB";
   
-    if(bytes.length==11)
-      return data;
-    break;
+    if(bytes.length !== 11)
+      throw new Error("invalid payload length for FPort 2: "+bytes.length);
+    return data;
 
   case 5:
     { 
@@ -173,7 +173,8 @@ function Decode(fPort, bytes, variables)  {
 
   case 7:
   case 8:
-    var Bat= (bytes[0]<<8 | bytes[1])/1000;
+    // var Bat= (bytes[0]<<8 | bytes[1])/1000;
+    var Bat= ((bytes[0]<<8 | bytes[1]) & 0x3FFF)/1000;
     var res=(bytes[0]&0x80)>>7;// Wiki not mentioned
     var bytelen;
     if(fPort==7)
@@ -207,3 +208,4 @@ function Decode(fPort, bytes, variables)  {
     throw new Error("unknown FPort: "+fPort);
 }
 }
+

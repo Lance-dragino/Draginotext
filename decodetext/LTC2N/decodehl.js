@@ -54,7 +54,7 @@ function Decoder(bytes, port) {
         // 超出范围-2000~2000判断为0（规格书无相关说明）
         var Channel1Temperature = parseFloat(((bytes[3]<<24>>16 | bytes[4])/10).toFixed(1));
         if(Channel1Temperature<-2000|Channel1Temperature>2000){
-            decode.Channel1Temperature = 0;//或者说输出"NULL"？
+            decode.Channel1Temperature = 0;//或者输出"NULL"？
         }else{
             decode.Channel1Temperature =  Channel1Temperature;
         }
@@ -75,26 +75,32 @@ function Decoder(bytes, port) {
     }
     else if(port==3)
     {
+        var pnack= ((bytes[6]>>7)&0x01) ? "True":"False";//？
         for(var i=0;i<bytes.length;i=i+11){
             var data_sum = '';
-            var logdata = datalog(i,bytes);
+            var data = datalog(i,bytes);
             if(i==0){
-                data_sum = logdata;
+                data_sum = data;
             }
             else{
-                data_sum+= logdata;
+                data_sum+= data;
             }
-
         }
-
-
-
-
-        
+        return{
+            Node_type:"LTC2N",
+            DATALOG:data_sum,
+            PNACKMD:pnack,
+        } 
     }
     else if(port==5)
     {
-
+        var SensorModel;
+        if(bytes[0]==0x3D){
+            SensorModel = 'LTC2N';
+        }
+        var Firmware_Version = (bytes[1]&0x0f)+'.'+(bytes[2]>>4&0x0f)+'.'+(bytes[2]&0x0f);
+        var freq_band;
+        
         
     }
 }

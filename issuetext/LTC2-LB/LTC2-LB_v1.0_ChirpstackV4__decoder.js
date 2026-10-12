@@ -165,7 +165,7 @@ function Decode(fPort, bytes, variables) {
       BAT:bat,
   	}
   }
-    else
+  else
   {
     return { errors: ["unknown FPort"] };
   }
